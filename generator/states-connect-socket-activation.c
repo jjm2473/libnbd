@@ -39,6 +39,8 @@
 
 extern char **environ;
 
+int set_cloexec (int fd);
+
 /* Prepare environment for calling execvp when doing systemd socket
  * activation.  Takes the current environment and copies it.  Removes
  * any existing LISTEN_PID or LISTEN_FDS and replaces them with new
@@ -131,7 +133,11 @@ STATE_MACHINE {
     return 0;
   }
 
+#ifdef SOCK_CLOEXEC
   s = socket (AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+#else
+  s = set_cloexec (socket (AF_UNIX, SOCK_STREAM, 0));
+#endif
   if (s == -1) {
     SET_NEXT_STATE (%.DEAD);
     set_error (errno, "socket");

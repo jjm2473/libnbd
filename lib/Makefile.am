@@ -25,9 +25,18 @@ generator_built = \
 	unlocked.h \
 	$(NULL)
 
+if HAVE_VSCRIPT
+DIST_SYMS = libnbd.syms
+libnbd_LDFLAGS_SYMS = @VSCRIPT_LDFLAGS@,$(srcdir)/libnbd.syms \
+	-version-info 0:0:0
+else
+DIST_SYMS =
+libnbd_LDFLAGS_SYMS =
+endif
+
 EXTRA_DIST = \
 	$(generator_built) \
-	libnbd.syms \
+	$(DIST_SYMS) \
 	$(NULL)
 
 lib_LTLIBRARIES = libnbd.la
@@ -78,8 +87,7 @@ libnbd_la_LIBADD = \
 	$(NULL)
 libnbd_la_LDFLAGS = \
 	$(PTHREAD_LIBS) \
-	-Wl,--version-script=$(srcdir)/libnbd.syms \
-	-version-info 0:0:0 \
+	$(libnbd_LDFLAGS_SYMS) \
 	$(NULL)
 
 # pkg-config / pkgconf

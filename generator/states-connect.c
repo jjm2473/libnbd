@@ -36,6 +36,9 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 
+int set_cloexec (int fd);
+int set_nonblock (int fd);
+
 /* Disable Nagle's algorithm on the socket, but don't fail. */
 static void
 disable_nagle (int sock)
@@ -50,8 +53,14 @@ STATE_MACHINE {
   int fd;
 
   assert (!h->sock);
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
   fd = socket (h->connaddr.ss_family,
                SOCK_STREAM|SOCK_NONBLOCK|SOCK_CLOEXEC, 0);
+#else
+  fd = set_cloexec(set_nonblock(
+           socket (h->connaddr.ss_family,
+               SOCK_STREAM, 0)));
+#endif
   if (fd == -1) {
     SET_NEXT_STATE (%.DEAD);
     set_error (errno, "socket");
@@ -147,9 +156,17 @@ STATE_MACHINE {
     return -1;
   }
 
+#if defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
   fd = socket (h->rp->ai_family,
                h->rp->ai_socktype|SOCK_NONBLOCK|SOCK_CLOEXEC,
                h->rp->ai_protocol);
+#else
+  fd = set_cloexec(set_nonblock(
+	  socket (h->rp->ai_family,
+               h->rp->ai_socktype,
+               h->rp->ai_protocol)));
+#endif
+
   if (fd == -1) {
     SET_NEXT_STATE (%NEXT_ADDRESS);
     return 0;
@@ -177,6 +194,9 @@ STATE_MACHINE {
  CONNECT_TCP.CONNECTING:
   int status;
   socklen_t len = sizeof status;
+#ifdef SO_NOSIGPIPE
+  int set = 1;
+#endif
 
   if (getsockopt (h->sock->ops->get_fd (h->sock),
                   SOL_SOCKET, SO_ERROR, &status, &len) == -1) {
@@ -184,6 +204,14 @@ STATE_MACHINE {
     set_error (errno, "getsockopt: SO_ERROR");
     return 0;
   }
+#ifdef SO_NOSIGPIPE
+  if (setsockopt(h->sock->ops->get_fd (h->sock), 
+                  SOL_SOCKET, SO_NOSIGPIPE, &set, sizeof(set)) != 0) {
+    SET_NEXT_STATE (%.DEAD);
+    set_error (errno, "setsockopt: SO_NOSIGPIPE");
+    return 0;
+  }
+#endif
   /* This checks the status of the original connect call. */
   if (status == 0)
     SET_NEXT_STATE (%^MAGIC.START);
@@ -212,11 +240,21 @@ STATE_MACHINE {
   assert (!h->sock);
   assert (h->argv.ptr);
   assert (h->argv.ptr[0]);
+
+#ifdef SOCK_CLOEXEC
   if (socketpair (AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sv) == -1) {
+#else
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, sv) == -1) {
+#endif
     SET_NEXT_STATE (%.DEAD);
     set_error (errno, "socketpair");
     return 0;
   }
+
+#ifndef SOCK_CLOEXEC
+  set_cloexec(sv[0]);
+  set_cloexec(sv[1]);
+#endif
 
   pid = fork ();
   if (pid == -1) {

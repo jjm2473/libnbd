@@ -38,6 +38,8 @@
 
 #include <libnbd.h>
 
+int set_cloexec (int fd);
+
 static void client (int s);
 static void server (int fd, int s);
 
@@ -61,10 +63,19 @@ main (int argc, char *argv[])
   }
 
   /* Create a connected socket. */
+#ifdef SOCK_CLOEXEC
   if (socketpair (AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sv) == -1) {
+#else
+  if (socketpair (AF_UNIX, SOCK_STREAM, 0, sv) == -1) {
+#endif
     perror ("socketpair");
     exit (EXIT_FAILURE);
   }
+
+#ifndef SOCK_CLOEXEC
+  set_cloexec(sv[0]);
+  set_cloexec(sv[1]);
+#endif
 
   /* Fork: The parent will be the libnbd process (client).  The child
    * will be the phony NBD server listening on the socket.

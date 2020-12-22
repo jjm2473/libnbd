@@ -41,6 +41,8 @@
 #include <fuse.h>
 #ifdef HAVE_FUSE_LOWLEVEL_H
 #include <fuse_lowlevel.h>
+#elif defined(HAVE_FUSE_FUSE_LOWLEVEL_H)
+#include <fuse/fuse_lowlevel.h>
 #endif
 
 #include <libnbd.h>
@@ -551,9 +553,15 @@ nbdfuse_getattr (const char *path, struct stat *statbuf)
    * this file is not usually compiled on non-Linux systems (perhaps
    * on OpenBSD?).  XXX
    */
+#ifdef __MACH__
+  statbuf->st_atimespec = start_t;
+  statbuf->st_mtimespec = start_t;
+  statbuf->st_ctimespec = start_t;
+#else
   statbuf->st_atim = start_t;
   statbuf->st_mtim = start_t;
   statbuf->st_ctim = start_t;
+#endif
   statbuf->st_uid = geteuid ();
   statbuf->st_gid = getegid ();
 

@@ -55,6 +55,8 @@ AS_IF([$CXX --version >&AS_MESSAGE_LOG_FD 2>&1],[have_cxx=yes],[have_cxx=no])
 AC_MSG_RESULT([$have_cxx])
 AM_CONDITIONAL([HAVE_CXX], [test "$have_cxx" = "yes"])
 
+AX_CHECK_VSCRIPT
+
 AC_ARG_ENABLE([gcc-warnings],
     [AS_HELP_STRING([--enable-gcc-warnings],
                     [turn on lots of GCC warnings (for developers)])],
@@ -214,6 +216,7 @@ AS_IF([test "x$enable_fuse" != "xno"],[
         old_CFLAGS="$CFLAGS"
         CFLAGS="$CFLAGS $FUSE_CFLAGS"
         AC_CHECK_HEADERS([fuse_lowlevel.h])
+        AC_CHECK_HEADERS([fuse/fuse_lowlevel.h],[],[],[#define FUSE_USE_VERSION 26])
         CFLAGS="$old_CFLAGS"
     ],[
         enable_fuse=no
@@ -283,6 +286,8 @@ AC_ARG_ENABLE([ocaml],
     AS_HELP_STRING([--disable-ocaml], [disable OCaml language bindings]),
     [],
     [enable_ocaml=yes])
+AM_CONDITIONAL([HAVE_OCAMLC],
+    [test "x$OCAMLC" != "xno"])
 AM_CONDITIONAL([HAVE_OCAML],
     [test "x$OCAMLC" != "xno" && test "x$OCAMLFIND" != "xno" && \
      test "x$enable_ocaml" = "xyes"])

@@ -24,6 +24,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 
 #include "internal.h"
 
@@ -258,3 +259,90 @@ nbd_internal_printable_string_list (char **list)
   return s;
 
 }
+
+#ifndef WIN32
+
+/* Set the FD_CLOEXEC flag on the given fd, if it is non-negative.
+ * On failure, close fd and return -1; on success, return fd.
+ *
+ * Note that this function should ONLY be used on platforms that lack
+ * atomic CLOEXEC support during fd creation (such as Haiku in 2019);
+ * when using it as a fallback path, you must also consider how to
+ * prevent fd leaks to plugins that want to fork().
+ */
+int
+set_cloexec (int fd)
+{
+#if (defined SOCK_CLOEXEC && defined HAVE_MKOSTEMP && defined HAVE_PIPE2 && \
+     defined HAVE_ACCEPT4)
+  nbdkit_error ("prefer creating fds with CLOEXEC atomically set");
+  close (fd);
+  errno = EBADF;
+  return -1;
+#else
+# if (defined SOCK_CLOEXEC || defined HAVE_MKOSTEMP || defined HAVE_PIPE2 || \
+      defined HAVE_ACCEPT4) && !defined(__MACH__)
+# error "Unexpected: your system has incomplete atomic CLOEXEC support"
+# endif
+  int f;
+  int err;
+
+  if (fd == -1)
+    return -1;
+
+  f = fcntl (fd, F_GETFD);
+  if (f == -1 || fcntl (fd, F_SETFD, f | FD_CLOEXEC) == -1) {
+    err = errno;
+    //nbdkit_error ("fcntl: %m");
+    close (fd);
+    errno = err;
+    return -1;
+  }
+  return fd;
+#endif
+}
+
+#else /* WIN32 */
+
+int
+set_cloexec (int fd)
+{
+  return fd;
+}
+
+#endif /* WIN32 */
+
+#ifndef WIN32
+
+/* Set the O_NONBLOCK flag on the given fd, if it is non-negative.
+ * On failure, close fd and return -1; on success, return fd.
+ */
+int
+set_nonblock (int fd)
+{
+  int f;
+  int err;
+
+  if (fd == -1)
+    return -1;
+
+  f = fcntl (fd, F_GETFL);
+  if (f == -1 || fcntl (fd, F_SETFL, f | O_NONBLOCK) == -1) {
+    err = errno;
+    //nbdkit_error ("fcntl: %m");
+    close (fd);
+    errno = err;
+    return -1;
+  }
+  return fd;
+}
+
+#else /* WIN32 */
+
+int
+set_nonblock (int fd)
+{
+  return fd;
+}
+
+#endif /* WIN32 */
