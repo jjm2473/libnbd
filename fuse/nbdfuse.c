@@ -573,7 +573,7 @@ nbdfuse_getattr (const char *path, struct stat *statbuf)
   }
   else if (strcmp (path, "/") == 0) {
     /* getattr "/" */
-    statbuf->st_mode = S_IFDIR | (mode & 0111);
+    statbuf->st_mode = S_IFDIR | 0111 | (mode & 0555);
     statbuf->st_nlink = 2;
   }
   else
