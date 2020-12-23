@@ -26,6 +26,7 @@ requires dd --version
 requires dd oflag=seek_bytes </dev/null
 requires test -r /dev/urandom
 requires test -r /dev/zero
+requires nbdkit --exit-with-parent --version
 
 file=copy-nbd-to-sparse-file.file
 file2=copy-nbd-to-sparse-file.file2

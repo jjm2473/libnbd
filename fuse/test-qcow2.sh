@@ -34,11 +34,15 @@ if ! test -r /dev/urandom; then
     exit 77
 fi
 
+function do_umount {
+    fusermount -u $1 || umount $1
+}
+
 pidfile=test-qcow2.pid
 mp=test-qcow2.d
 data=test-qcow2.data
 qcow2=test-qcow2.qcow2
-cleanup_fn fusermount -u $mp
+cleanup_fn do_umount $mp
 cleanup_fn rm -rf $mp
 cleanup_fn rm -f $pidfile $data $qcow2
 
